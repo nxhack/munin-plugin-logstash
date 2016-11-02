@@ -57,9 +57,10 @@ sub get_json_from_url {
 }
 
 my $data = get_json_from_url("http://$host:$port/_node/stats/process");
-my %out = (max_file => 0, peak_open_file => 0, open_file => 0);
+#my %out = (max_file => 0, peak_open_file => 0, open_file => 0);
+my %out = (peak_open_file => 0, open_file => 0);
 
-$out{max_file} = $data->{process}{max_file_descriptors};
+#$out{max_file} = $data->{process}{max_file_descriptors};
 $out{peak_open_file} = $data->{process}{peak_open_file_descriptors};
 $out{open_file} = $data->{process}{open_file_descriptors};
 
