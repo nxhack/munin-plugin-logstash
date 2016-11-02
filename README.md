@@ -1,2 +1,2 @@
 # munin-plugin-logstash
-munin plugin for logstash via monitor API
+munin plugin for Logstash via monitor API

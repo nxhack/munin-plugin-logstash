@@ -1,0 +1,87 @@
+#!/usr/bin/env perl
+
+# Parameters supported:
+#
+# config
+# autoconf
+#
+# Magic markers:
+#%# family=auto
+#%# capabilities=autoconf
+
+use strict;
+use warnings;
+use LWP;
+use JSON qw/decode_json/;
+
+=head1 NAME
+
+logstash_jvm_pools_size - A munin plugin that collects jvm pools size stats of your Logstash instances
+
+=head1 APPLICABLE SYSTEMS
+
+Logstash
+
+=head1 CONFIGURATION
+
+  [logstash_*]
+    env.host 127.0.0.1
+    env.port 9600
+
+=head1 BUGS
+
+None known so far. If you find any, let me know.
+
+=head1 AUTHOR
+
+Original Author:
+Timothy Messier (t0m) - c<< <tim.messier@gmail.com> >>
+Kentaro Yoshida - https://github.com/y-ken
+
+Modified by Hirokazu MORIKAWA <morikw2@gmail.com>
+
+=cut
+
+my $host = exists $ENV{'host'} ? $ENV{'host'} : 'localhost';
+my $port = exists $ENV{'port'} ? $ENV{'port'} : 9600;
+
+my $ua = LWP::UserAgent->new;
+$ua->timeout(10);
+
+sub get_json_from_url {
+    my $uri = shift;
+    my $res = $ua->get($uri, 'Content-Type' => 'application/json' );
+    Carp::confess($res->code . " for " . $uri) unless $res->is_success;
+    my $data = do { local $@; eval { decode_json($res->content) } };
+    die("Could not decode JSON from: " . $res->content) unless $data;
+    return $data;
+}
+
+my $data = get_json_from_url("http://$host:$port/_node/stats/jvm");
+my %out = (young_used => 0, young_peak => 0, survivor_used => 0, survivor_peak => 0, old_used => 0, old_peak => 0);
+
+$out{young_used} += $data->{jvm}{mem}{pools}{young}{used_in_bytes};
+$out{young_peak} += $data->{jvm}{mem}{pools}{young}{peak_used_in_bytes};
+
+$out{survivor_used} += $data->{jvm}{mem}{pools}{survivor}{used_in_bytes};
+$out{survivor_peak} += $data->{jvm}{mem}{pools}{survivor}{peak_used_in_bytes};
+
+$out{old_used} += $data->{jvm}{mem}{pools}{old}{used_in_bytes};
+$out{old_peak} += $data->{jvm}{mem}{pools}{old}{peak_used_in_bytes};
+
+if ($ARGV[0] and $ARGV[0] eq 'config') {
+    print "graph_title Logstash (port $port) JVM pools size\n";
+    print "graph_category logstash\n";
+    print "graph_vlabel bytes\n";
+
+    foreach my $name (keys %out) {
+        print "$name.label $name\n"."$name.type GAUGE\n";
+    }
+}
+elsif (!$ARGV[0] || $ARGV[0] eq 'autoconf') {
+    foreach my $name (keys %out) {
+        print "$name.value " . $out{$name} . "\n";
+    }
+}
+
+exit(0);
